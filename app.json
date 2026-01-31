@@ -24,7 +24,8 @@
       "bundleIdentifier": "com.sjchmiela.cameralens",
       "infoPlist": {
         "NSCameraUsageDescription": "$(PRODUCT_NAME) needs access to your camera to take photos.",
-        "NSPhotoLibraryAddUsageDescription": "This app saves photos to your camera roll."
+        "NSPhotoLibraryAddUsageDescription": "This app saves photos to your camera roll.",
+        "NSLocationWhenInUseUsageDescription": "$(PRODUCT_NAME) needs access to your location to add GPS data to your photos."
       }
     },
     "experiments": {
@@ -48,6 +49,12 @@
         {
           "photosPermission": "Allow $(PRODUCT_NAME) to save photos to your camera roll.",
           "savePhotosPermission": "Allow $(PRODUCT_NAME) to save photos to your camera roll."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to add GPS data to photos."
         }
       ]
     ],

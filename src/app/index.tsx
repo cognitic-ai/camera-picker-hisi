@@ -1,4 +1,4 @@
-import { Camera, useCameraDevice, useCameraDevices, useCameraPermission, CameraDevice } from "react-native-vision-camera";
+import { Camera, useCameraDevice, useCameraDevices, useCameraFormat, useCameraPermission, CameraDevice } from "react-native-vision-camera";
 import * as MediaLibrary from "expo-media-library";
 import { useState, useRef, useMemo } from "react";
 import { View, Text, Pressable, StyleSheet, Alert } from "react-native";
@@ -47,6 +47,26 @@ export default function CameraScreen() {
   // Use selected device or default to first back camera
   const device = selectedDevice || backCameras[0];
 
+  // Select the best format for maximum photo quality
+  const format = useCameraFormat(device, [
+    { photoResolution: 'max' },
+    { photoAspectRatio: device?.sensorOrientation === 'landscape-left' || device?.sensorOrientation === 'landscape-right' ? 4/3 : 3/4 },
+  ]);
+
+  // Log format information for debugging
+  useMemo(() => {
+    if (format) {
+      console.log("Selected format:", {
+        photoWidth: format.photoWidth,
+        photoHeight: format.photoHeight,
+        videoWidth: format.videoWidth,
+        videoHeight: format.videoHeight,
+        maxISO: format.maxISO,
+        maxFps: format.maxFps,
+      });
+    }
+  }, [format]);
+
   if (!hasPermission) {
     return (
       <View style={[styles.container, { backgroundColor: isDark ? AC.systemBackground : AC.systemBackground }]}>
@@ -83,6 +103,17 @@ export default function CameraScreen() {
         const photo = await cameraRef.current.takePhoto({
           qualityPrioritization: "quality",
           enableShutterSound: true,
+          enableAutoStabilization: true,
+          enableAutoRedEyeReduction: true,
+          flash: "off",
+        });
+
+        console.log("Photo taken:", {
+          path: photo.path,
+          width: photo.width,
+          height: photo.height,
+          orientation: photo.orientation,
+          isMirrored: photo.isMirrored,
         });
 
         // Request media library permission if not granted
@@ -130,10 +161,13 @@ export default function CameraScreen() {
         ref={cameraRef}
         style={styles.camera}
         device={device}
+        format={format}
         isActive={true}
         photo={true}
         resizeMode="cover"
         enableZoomGesture={false}
+        enableBufferCompression={false}
+        enableLocation={true}
       />
       <View style={styles.controlsContainer}>
         <View style={styles.topControls}>
