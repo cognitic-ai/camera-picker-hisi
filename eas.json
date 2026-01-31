@@ -10,12 +10,17 @@
         "simulator": true
       }
     },
-    "preview": {
+    "development-device": {
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
-        "simulator": false,
-        "buildConfiguration": "Release"
+        "simulator": false
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "ios": {
+        "simulator": false
       }
     },
     "production": {

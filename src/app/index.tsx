@@ -71,7 +71,6 @@ export default function CameraScreen() {
 
         // Save to camera roll
         await MediaLibrary.saveToLibraryAsync(`file://${photo.path}`);
-        Alert.alert("Photo Saved!", "Photo has been saved to your camera roll", [{ text: "OK" }]);
       } catch (error) {
         Alert.alert("Error", `Failed to take picture: ${error}`);
       }
