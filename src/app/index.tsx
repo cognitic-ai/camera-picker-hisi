@@ -1,6 +1,7 @@
 import { Camera, useCameraDevice, useCameraDevices, useCameraFormat, useCameraPermission, CameraDevice } from "react-native-vision-camera";
 import * as MediaLibrary from "expo-media-library";
-import { useState, useRef, useMemo } from "react";
+import * as Location from "expo-location";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { View, Text, Pressable, StyleSheet, Alert } from "react-native";
 import * as AC from "@bacons/apple-colors";
 import { useColorScheme } from "react-native";
@@ -8,6 +9,7 @@ import { useColorScheme } from "react-native";
 export default function CameraScreen() {
   const { hasPermission, requestPermission } = useCameraPermission();
   const [mediaPermission, requestMediaPermission] = MediaLibrary.usePermissions();
+  const [locationPermission, setLocationPermission] = useState<boolean>(false);
   const devices = useCameraDevices();
   const [selectedDevice, setSelectedDevice] = useState<CameraDevice | undefined>(undefined);
   const cameraRef = useRef<Camera>(null);
@@ -46,6 +48,15 @@ export default function CameraScreen() {
 
   // Use selected device or default to first back camera
   const device = selectedDevice || backCameras[0];
+
+  // Check location permission
+  useEffect(() => {
+    const checkLocationPermission = async () => {
+      const { status } = await Location.getForegroundPermissionsAsync();
+      setLocationPermission(status === 'granted');
+    };
+    checkLocationPermission();
+  }, []);
 
   // Select the best format for maximum photo quality AND good preview
   const format = useCameraFormat(device, [
@@ -171,7 +182,7 @@ export default function CameraScreen() {
         resizeMode="cover"
         enableZoomGesture={false}
         videoStabilizationMode="cinematic-extended"
-        enableLocation={true}
+        enableLocation={locationPermission}
       />
       <View style={styles.controlsContainer}>
         <View style={styles.topControls}>
