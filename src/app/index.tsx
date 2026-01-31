@@ -85,6 +85,7 @@ export default function CameraScreen() {
   return (
     <View style={styles.container}>
       <CameraView
+        key={selectedCamera}
         ref={cameraRef}
         style={styles.camera}
         facing="back"
