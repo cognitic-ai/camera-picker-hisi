@@ -47,10 +47,11 @@ export default function CameraScreen() {
   // Use selected device or default to first back camera
   const device = selectedDevice || backCameras[0];
 
-  // Select the best format for maximum photo quality
+  // Select the best format for maximum photo quality AND good preview
   const format = useCameraFormat(device, [
     { photoResolution: 'max' },
-    { photoAspectRatio: device?.sensorOrientation === 'landscape-left' || device?.sensorOrientation === 'landscape-right' ? 4/3 : 3/4 },
+    { videoResolution: 'max' },
+    { fps: 30 },
   ]);
 
   // Log format information for debugging
@@ -61,6 +62,7 @@ export default function CameraScreen() {
         photoHeight: format.photoHeight,
         videoWidth: format.videoWidth,
         videoHeight: format.videoHeight,
+        videoStabilizationModes: format.videoStabilizationModes,
         maxISO: format.maxISO,
         maxFps: format.maxFps,
       });
@@ -101,11 +103,11 @@ export default function CameraScreen() {
     if (cameraRef.current) {
       try {
         const photo = await cameraRef.current.takePhoto({
-          qualityPrioritization: "quality",
-          enableShutterSound: true,
-          enableAutoStabilization: true,
-          enableAutoRedEyeReduction: true,
           flash: "off",
+          enableShutterSound: true,
+          enableAutoRedEyeReduction: true,
+          enableAutoDistortionCorrection: true,
+          enablePrecapture: true,
         });
 
         console.log("Photo taken:", {
@@ -164,9 +166,11 @@ export default function CameraScreen() {
         format={format}
         isActive={true}
         photo={true}
+        video={false}
+        preview={true}
         resizeMode="cover"
         enableZoomGesture={false}
-        enableBufferCompression={false}
+        videoStabilizationMode="cinematic-extended"
         enableLocation={true}
       />
       <View style={styles.controlsContainer}>
