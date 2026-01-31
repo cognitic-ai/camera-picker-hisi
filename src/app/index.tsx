@@ -10,13 +10,14 @@ export default function CameraScreen() {
   const [mediaPermission, requestMediaPermission] = MediaLibrary.usePermissions();
   const [selectedLens, setSelectedLens] = useState<string | undefined>(undefined);
   const [availableLenses, setAvailableLenses] = useState<string[]>([]);
+  const [pictureSize, setPictureSize] = useState<string | undefined>(undefined);
   const cameraRef = useRef<CameraView>(null);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
 
   const handleAvailableLensesChanged = (event: any) => {
     console.log("Available lenses event:", event);
-    const lenses = event?.nativeEvent?.availableLenses || event?.availableLenses || event || [];
+    const lenses = event?.lenses || event?.nativeEvent?.availableLenses || event?.availableLenses || event || [];
     console.log("Parsed lenses:", lenses);
 
     if (Array.isArray(lenses) && lenses.length > 0) {
@@ -24,17 +25,18 @@ export default function CameraScreen() {
       // Set default lens if not already set
       if (!selectedLens) {
         // Try to find the standard wide lens, or use the first one
-        const wideLens = lenses.find((l: string) => l.toLowerCase().includes("back") && !l.toLowerCase().includes("ultra") && !l.toLowerCase().includes("telephoto"));
+        const wideLens = lenses.find((l: string) => l.toLowerCase().includes("back") && !l.toLowerCase().includes("ultra") && !l.toLowerCase().includes("telephoto") && !l.toLowerCase().includes("dual"));
         setSelectedLens(wideLens || lenses[0]);
       }
     }
   };
 
-  // Try to get available lenses when camera is ready
+  // Try to get available lenses and picture sizes when camera is ready
   useEffect(() => {
-    const getAvailableLenses = async () => {
+    const initializeCamera = async () => {
       if (cameraRef.current) {
         try {
+          // Get available lenses
           const lenses = await cameraRef.current.getAvailableLensesAsync();
           console.log("Manually fetched lenses:", lenses);
           if (lenses && lenses.length > 0) {
@@ -44,14 +46,30 @@ export default function CameraScreen() {
               setSelectedLens(wideLens || lenses[0]);
             }
           }
+
+          // Get available picture sizes and select the largest
+          const sizes = await cameraRef.current.getAvailablePictureSizesAsync();
+          console.log("Available picture sizes:", sizes);
+          if (sizes && sizes.length > 0) {
+            // Typically the largest size is the last one or has the highest resolution
+            // Parse sizes (format like "4032x3024") and find the largest
+            const sortedSizes = sizes.sort((a: string, b: string) => {
+              const [aWidth, aHeight] = a.split('x').map(Number);
+              const [bWidth, bHeight] = b.split('x').map(Number);
+              return (bWidth * bHeight) - (aWidth * aHeight);
+            });
+            const largestSize = sortedSizes[0];
+            console.log("Selected picture size:", largestSize);
+            setPictureSize(largestSize);
+          }
         } catch (error) {
-          console.log("Error getting lenses:", error);
+          console.log("Error initializing camera:", error);
         }
       }
     };
 
     // Wait a bit for camera to be ready
-    const timer = setTimeout(getAvailableLenses, 500);
+    const timer = setTimeout(initializeCamera, 500);
     return () => clearTimeout(timer);
   }, [permission?.granted]);
 
@@ -90,6 +108,7 @@ export default function CameraScreen() {
       try {
         const photo = await cameraRef.current.takePictureAsync({
           quality: 1,
+          skipProcessing: false, // Ensure proper orientation
         });
 
         if (photo) {
@@ -148,6 +167,7 @@ export default function CameraScreen() {
         style={styles.camera}
         facing="back"
         selectedLens={selectedLens}
+        pictureSize={pictureSize}
         onAvailableLensesChanged={handleAvailableLensesChanged}
       />
       <View style={styles.controlsContainer}>
