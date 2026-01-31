@@ -1,31 +1,28 @@
-import { CameraView, CameraType, useCameraPermissions } from "expo-camera";
+import { CameraView, useCameraPermissions } from "expo-camera";
 import { useState, useRef, useEffect } from "react";
 import { View, Text, Pressable, StyleSheet, Alert } from "react-native";
 import * as AC from "@bacons/apple-colors";
 import { useColorScheme } from "react-native";
 
-type CameraDeviceType = "ultra-wide-angle-camera" | "wide-angle-camera" | "telephoto-camera";
+type CameraLensType = "builtInUltraWideCamera" | "builtInWideAngleCamera" | "builtInTelephotoCamera";
 
 export default function CameraScreen() {
   const [permission, requestPermission] = useCameraPermissions();
-  const [selectedCamera, setSelectedCamera] = useState<CameraDeviceType>("wide-angle-camera");
-  const [availableCameras, setAvailableCameras] = useState<CameraDeviceType[]>([]);
+  const [selectedLens, setSelectedLens] = useState<CameraLensType>("builtInWideAngleCamera");
+  const [availableLenses, setAvailableLenses] = useState<CameraLensType[]>([]);
   const cameraRef = useRef<CameraView>(null);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
 
   useEffect(() => {
-    // Detect available cameras
-    const cameras: CameraDeviceType[] = ["wide-angle-camera"];
+    // Default lenses - we'll update this based on actual availability
+    const lenses: CameraLensType[] = [
+      "builtInUltraWideCamera",
+      "builtInWideAngleCamera",
+      "builtInTelephotoCamera"
+    ];
 
-    // Most iPhones have at least wide-angle
-    // iPhone 11+ has ultra-wide
-    // iPhone 7 Plus+ has telephoto
-    // We'll show all options and let the camera handle availability
-    cameras.unshift("ultra-wide-angle-camera");
-    cameras.push("telephoto-camera");
-
-    setAvailableCameras(cameras);
+    setAvailableLenses(lenses);
   }, []);
 
   if (!permission) {
@@ -71,13 +68,13 @@ export default function CameraScreen() {
     }
   };
 
-  const getCameraLabel = (camera: CameraDeviceType) => {
-    switch (camera) {
-      case "ultra-wide-angle-camera":
+  const getLensLabel = (lens: CameraLensType) => {
+    switch (lens) {
+      case "builtInUltraWideCamera":
         return "Ultra Wide (0.5x)";
-      case "wide-angle-camera":
+      case "builtInWideAngleCamera":
         return "Wide (1x)";
-      case "telephoto-camera":
+      case "builtInTelephotoCamera":
         return "Telephoto (2x/3x)";
     }
   };
@@ -85,31 +82,31 @@ export default function CameraScreen() {
   return (
     <View style={styles.container}>
       <CameraView
-        key={selectedCamera}
+        key={selectedLens}
         ref={cameraRef}
         style={styles.camera}
         facing="back"
-        cameraType={selectedCamera}
+        selectedLens={selectedLens}
       >
         <View style={styles.controlsContainer}>
           <View style={styles.topControls}>
             <Text style={[styles.title, { color: "white" }]}>Camera Selection</Text>
             <Text style={[styles.subtitle, { color: AC.systemGray6 }]}>
-              Current: {getCameraLabel(selectedCamera)}
+              Current: {getLensLabel(selectedLens)}
             </Text>
           </View>
 
           <View style={styles.bottomControls}>
             <View style={styles.cameraSelector}>
-              {availableCameras.map((camera) => (
+              {availableLenses.map((lens) => (
                 <Pressable
-                  key={camera}
-                  onPress={() => setSelectedCamera(camera)}
+                  key={lens}
+                  onPress={() => setSelectedLens(lens)}
                   style={({ pressed }) => [
                     styles.cameraSelectorButton,
                     {
                       backgroundColor:
-                        selectedCamera === camera
+                        selectedLens === lens
                           ? AC.systemBlue
                           : "rgba(255, 255, 255, 0.2)",
                       opacity: pressed ? 0.7 : 1,
@@ -121,11 +118,11 @@ export default function CameraScreen() {
                       styles.cameraSelectorText,
                       {
                         color: "white",
-                        fontWeight: selectedCamera === camera ? "700" : "500",
+                        fontWeight: selectedLens === lens ? "700" : "500",
                       },
                     ]}
                   >
-                    {getCameraLabel(camera)}
+                    {getLensLabel(lens)}
                   </Text>
                 </Pressable>
               ))}
