@@ -2,17 +2,28 @@
   "expo": {
     "name": "Camera Lens Selector",
     "slug": "camera-lens-selector",
+    "owner": "sjchmiela",
     "version": "1.0.0",
     "orientation": "default",
     "scheme": "acme",
     "userInterfaceStyle": "automatic",
     "android": {
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO"
+      ]
     },
     "ios": {
+      "bundleIdentifier": "com.sjchmiela.cameralens",
       "infoPlist": {
-        "NSCameraUsageDescription": "This app uses the camera to take photos with your selected lens.",
+        "NSCameraUsageDescription": "$(PRODUCT_NAME) needs access to your camera to take photos.",
         "NSPhotoLibraryAddUsageDescription": "This app saves photos to your camera roll."
       }
     },
@@ -39,6 +50,12 @@
           "savePhotosPermission": "Allow $(PRODUCT_NAME) to save photos to your camera roll."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a9aea40b-a1fa-41cc-9324-0a4939381b20"
+      }
+    }
   }
 }
