@@ -9,7 +9,8 @@
     },
     "ios": {
       "infoPlist": {
-        "NSCameraUsageDescription": "This app uses the camera to take photos with your selected lens."
+        "NSCameraUsageDescription": "This app uses the camera to take photos with your selected lens.",
+        "NSPhotoLibraryAddUsageDescription": "This app saves photos to your camera roll."
       }
     },
     "experiments": {
@@ -25,6 +26,13 @@
         "expo-camera",
         {
           "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to take photos."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to save photos to your camera roll.",
+          "savePhotosPermission": "Allow $(PRODUCT_NAME) to save photos to your camera roll."
         }
       ]
     ]

@@ -1,29 +1,29 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
+import * as MediaLibrary from "expo-media-library";
 import { useState, useRef, useEffect } from "react";
 import { View, Text, Pressable, StyleSheet, Alert } from "react-native";
 import * as AC from "@bacons/apple-colors";
 import { useColorScheme } from "react-native";
 
-type CameraLensType = "builtInUltraWideCamera" | "builtInWideAngleCamera" | "builtInTelephotoCamera";
-
 export default function CameraScreen() {
   const [permission, requestPermission] = useCameraPermissions();
-  const [selectedLens, setSelectedLens] = useState<CameraLensType>("builtInWideAngleCamera");
-  const [availableLenses, setAvailableLenses] = useState<CameraLensType[]>([]);
+  const [mediaPermission, requestMediaPermission] = MediaLibrary.usePermissions();
+  const [selectedLens, setSelectedLens] = useState<string | undefined>(undefined);
+  const [availableLenses, setAvailableLenses] = useState<string[]>([]);
   const cameraRef = useRef<CameraView>(null);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
 
-  useEffect(() => {
-    // Default lenses - we'll update this based on actual availability
-    const lenses: CameraLensType[] = [
-      "builtInUltraWideCamera",
-      "builtInWideAngleCamera",
-      "builtInTelephotoCamera"
-    ];
-
+  const handleAvailableLensesChanged = (lenses: string[]) => {
+    console.log("Available lenses from device:", lenses);
     setAvailableLenses(lenses);
-  }, []);
+    // Set default lens if not already set
+    if (!selectedLens && lenses.length > 0) {
+      // Try to find the standard wide lens, or use the first one
+      const wideLens = lenses.find(l => l.toLowerCase().includes("back") && !l.toLowerCase().includes("ultra") && !l.toLowerCase().includes("telephoto"));
+      setSelectedLens(wideLens || lenses[0]);
+    }
+  };
 
   if (!permission) {
     return (
@@ -61,21 +61,52 @@ export default function CameraScreen() {
         const photo = await cameraRef.current.takePictureAsync({
           quality: 1,
         });
-        Alert.alert("Photo Captured!", `Saved to: ${photo?.uri}`, [{ text: "OK" }]);
+
+        if (photo) {
+          // Request media library permission if not granted
+          if (!mediaPermission?.granted) {
+            const { status } = await requestMediaPermission();
+            if (status !== "granted") {
+              Alert.alert("Permission Required", "Please grant access to save photos to camera roll");
+              return;
+            }
+          }
+
+          // Save to camera roll
+          await MediaLibrary.saveToLibraryAsync(photo.uri);
+          Alert.alert("Photo Saved!", "Photo has been saved to your camera roll", [{ text: "OK" }]);
+        }
       } catch (error) {
-        Alert.alert("Error", "Failed to take picture");
+        Alert.alert("Error", `Failed to take picture: ${error}`);
       }
     }
   };
 
-  const getLensLabel = (lens: CameraLensType) => {
-    switch (lens) {
-      case "builtInUltraWideCamera":
-        return "Ultra Wide (0.5x)";
-      case "builtInWideAngleCamera":
-        return "Wide (1x)";
-      case "builtInTelephotoCamera":
-        return "Telephoto (2x/3x)";
+  const handleLensChange = (lens: string) => {
+    console.log("Switching to lens:", lens);
+    setSelectedLens(lens);
+  };
+
+  const getLensLabel = (lens: string) => {
+    // Use the actual lens name from iOS, and add zoom indicators
+    const lowerLens = lens.toLowerCase();
+    if (lowerLens.includes("ultra")) {
+      return `${lens} (0.5x)`;
+    } else if (lowerLens.includes("telephoto")) {
+      return `${lens} (2-3x)`;
+    } else {
+      return `${lens} (1x)`;
+    }
+  };
+
+  const getShortLensLabel = (lens: string) => {
+    const lowerLens = lens.toLowerCase();
+    if (lowerLens.includes("ultra")) {
+      return "Ultra Wide (0.5x)";
+    } else if (lowerLens.includes("telephoto")) {
+      return "Telephoto (2-3x)";
+    } else {
+      return "Wide (1x)";
     }
   };
 
@@ -87,21 +118,29 @@ export default function CameraScreen() {
         style={styles.camera}
         facing="back"
         selectedLens={selectedLens}
-      >
-        <View style={styles.controlsContainer}>
-          <View style={styles.topControls}>
-            <Text style={[styles.title, { color: "white" }]}>Camera Selection</Text>
+        onAvailableLensesChanged={(event) => handleAvailableLensesChanged(event.nativeEvent.availableLenses)}
+      />
+      <View style={styles.controlsContainer}>
+        <View style={styles.topControls}>
+          <Text style={[styles.title, { color: "white" }]}>Camera Selection</Text>
+          {selectedLens && (
             <Text style={[styles.subtitle, { color: AC.systemGray6 }]}>
-              Current: {getLensLabel(selectedLens)}
+              Current: {getShortLensLabel(selectedLens)}
             </Text>
-          </View>
+          )}
+        </View>
 
-          <View style={styles.bottomControls}>
-            <View style={styles.cameraSelector}>
-              {availableLenses.map((lens) => (
+        <View style={styles.bottomControls}>
+          <View style={styles.cameraSelector}>
+            {availableLenses.length === 0 ? (
+              <Text style={{ color: "white", textAlign: "center" }}>
+                Detecting cameras...
+              </Text>
+            ) : (
+              availableLenses.map((lens) => (
                 <Pressable
                   key={lens}
-                  onPress={() => setSelectedLens(lens)}
+                  onPress={() => handleLensChange(lens)}
                   style={({ pressed }) => [
                     styles.cameraSelectorButton,
                     {
@@ -122,24 +161,24 @@ export default function CameraScreen() {
                       },
                     ]}
                   >
-                    {getLensLabel(lens)}
+                    {getShortLensLabel(lens)}
                   </Text>
                 </Pressable>
-              ))}
-            </View>
-
-            <Pressable
-              onPress={takePicture}
-              style={({ pressed }) => [
-                styles.captureButton,
-                { opacity: pressed ? 0.7 : 1 },
-              ]}
-            >
-              <View style={styles.captureButtonInner} />
-            </Pressable>
+              ))
+            )}
           </View>
+
+          <Pressable
+            onPress={takePicture}
+            style={({ pressed }) => [
+              styles.captureButton,
+              { opacity: pressed ? 0.7 : 1 },
+            ]}
+          >
+            <View style={styles.captureButtonInner} />
+          </Pressable>
         </View>
-      </CameraView>
+      </View>
     </View>
   );
 }
@@ -149,10 +188,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   camera: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
   },
   controlsContainer: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: "transparent",
     justifyContent: "space-between",
   },
