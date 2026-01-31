@@ -14,10 +14,34 @@ export default function CameraScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
 
-  // Get all back cameras
+  // Get all back cameras - filter to only physical single cameras
   const backCameras = useMemo(() => {
     if (!devices) return [];
-    return devices.filter(d => d.position === "back");
+
+    const backDevices = devices.filter(d => d.position === "back");
+
+    // Log all devices for debugging
+    console.log("All back devices:", backDevices.map(d => ({
+      id: d.id,
+      name: d.name,
+      physicalDevices: d.physicalDevices,
+      devices: d.devices
+    })));
+
+    // Filter to only physical cameras (not virtual/dual cameras)
+    // A physical camera has exactly one physical device type
+    const physicalCameras = backDevices.filter(d => {
+      const physicalDevices = d.physicalDevices || [];
+      return physicalDevices.length === 1;
+    });
+
+    console.log("Physical cameras:", physicalCameras.map(d => ({
+      id: d.id,
+      name: d.name,
+      physicalDevices: d.physicalDevices
+    })));
+
+    return physicalCameras;
   }, [devices]);
 
   // Use selected device or default to first back camera
@@ -108,6 +132,8 @@ export default function CameraScreen() {
         device={device}
         isActive={true}
         photo={true}
+        resizeMode="cover"
+        enableZoomGesture={false}
       />
       <View style={styles.controlsContainer}>
         <View style={styles.topControls}>
