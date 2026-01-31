@@ -14,16 +14,46 @@ export default function CameraScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
 
-  const handleAvailableLensesChanged = (lenses: string[]) => {
-    console.log("Available lenses from device:", lenses);
-    setAvailableLenses(lenses);
-    // Set default lens if not already set
-    if (!selectedLens && lenses.length > 0) {
-      // Try to find the standard wide lens, or use the first one
-      const wideLens = lenses.find(l => l.toLowerCase().includes("back") && !l.toLowerCase().includes("ultra") && !l.toLowerCase().includes("telephoto"));
-      setSelectedLens(wideLens || lenses[0]);
+  const handleAvailableLensesChanged = (event: any) => {
+    console.log("Available lenses event:", event);
+    const lenses = event?.nativeEvent?.availableLenses || event?.availableLenses || event || [];
+    console.log("Parsed lenses:", lenses);
+
+    if (Array.isArray(lenses) && lenses.length > 0) {
+      setAvailableLenses(lenses);
+      // Set default lens if not already set
+      if (!selectedLens) {
+        // Try to find the standard wide lens, or use the first one
+        const wideLens = lenses.find((l: string) => l.toLowerCase().includes("back") && !l.toLowerCase().includes("ultra") && !l.toLowerCase().includes("telephoto"));
+        setSelectedLens(wideLens || lenses[0]);
+      }
     }
   };
+
+  // Try to get available lenses when camera is ready
+  useEffect(() => {
+    const getAvailableLenses = async () => {
+      if (cameraRef.current) {
+        try {
+          const lenses = await cameraRef.current.getAvailableLensesAsync();
+          console.log("Manually fetched lenses:", lenses);
+          if (lenses && lenses.length > 0) {
+            setAvailableLenses(lenses);
+            if (!selectedLens) {
+              const wideLens = lenses.find((l: string) => l.toLowerCase().includes("back") && !l.toLowerCase().includes("ultra") && !l.toLowerCase().includes("telephoto"));
+              setSelectedLens(wideLens || lenses[0]);
+            }
+          }
+        } catch (error) {
+          console.log("Error getting lenses:", error);
+        }
+      }
+    };
+
+    // Wait a bit for camera to be ready
+    const timer = setTimeout(getAvailableLenses, 500);
+    return () => clearTimeout(timer);
+  }, [permission?.granted]);
 
   if (!permission) {
     return (
@@ -118,7 +148,7 @@ export default function CameraScreen() {
         style={styles.camera}
         facing="back"
         selectedLens={selectedLens}
-        onAvailableLensesChanged={(event) => handleAvailableLensesChanged(event.nativeEvent.availableLenses)}
+        onAvailableLensesChanged={handleAvailableLensesChanged}
       />
       <View style={styles.controlsContainer}>
         <View style={styles.topControls}>
