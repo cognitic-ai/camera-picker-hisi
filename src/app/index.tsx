@@ -1,26 +1,27 @@
-import { Camera, useCameraDevice, useCameraPermission } from "react-native-vision-camera";
+import { Camera, useCameraDevice, useCameraDevices, useCameraPermission, CameraDevice } from "react-native-vision-camera";
 import * as MediaLibrary from "expo-media-library";
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { View, Text, Pressable, StyleSheet, Alert } from "react-native";
 import * as AC from "@bacons/apple-colors";
 import { useColorScheme } from "react-native";
 
-type PhysicalCameraDevice = "ultra-wide-angle-camera" | "wide-angle-camera" | "telephoto-camera";
-
 export default function CameraScreen() {
   const { hasPermission, requestPermission } = useCameraPermission();
   const [mediaPermission, requestMediaPermission] = MediaLibrary.usePermissions();
-  const [selectedDeviceType, setSelectedDeviceType] = useState<PhysicalCameraDevice>("wide-angle-camera");
-  const device = useCameraDevice("back", { physicalDevices: [selectedDeviceType] });
+  const devices = useCameraDevices();
+  const [selectedDevice, setSelectedDevice] = useState<CameraDevice | undefined>(undefined);
   const cameraRef = useRef<Camera>(null);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
 
-  const availableDeviceTypes: PhysicalCameraDevice[] = [
-    "ultra-wide-angle-camera",
-    "wide-angle-camera",
-    "telephoto-camera"
-  ];
+  // Get all back cameras
+  const backCameras = useMemo(() => {
+    if (!devices) return [];
+    return devices.filter(d => d.position === "back");
+  }, [devices]);
+
+  // Use selected device or default to first back camera
+  const device = selectedDevice || backCameras[0];
 
   if (!hasPermission) {
     return (
@@ -77,20 +78,26 @@ export default function CameraScreen() {
     }
   };
 
-  const handleLensChange = (deviceType: PhysicalCameraDevice) => {
-    console.log("Switching to device:", deviceType);
-    setSelectedDeviceType(deviceType);
+  const handleLensChange = (device: CameraDevice) => {
+    console.log("Switching to device:", device.name);
+    setSelectedDevice(device);
   };
 
-  const getDeviceLabel = (deviceType: PhysicalCameraDevice) => {
-    switch (deviceType) {
-      case "ultra-wide-angle-camera":
-        return "Ultra Wide (0.5x)";
-      case "wide-angle-camera":
-        return "Wide (1x)";
-      case "telephoto-camera":
-        return "Telephoto (2-3x)";
+  const getDeviceLabel = (device: CameraDevice) => {
+    const physicalDevices = device.physicalDevices || [];
+    const deviceTypes = physicalDevices.join(", ");
+
+    // Try to determine zoom level from device types
+    if (physicalDevices.includes("ultra-wide-angle-camera")) {
+      return `Ultra Wide (0.5x)`;
+    } else if (physicalDevices.includes("telephoto-camera")) {
+      return `Telephoto (${device.minZoom}x-${device.maxZoom}x)`;
+    } else if (physicalDevices.includes("wide-angle-camera")) {
+      return `Wide (1x)`;
     }
+
+    // Fallback to device name
+    return device.name || "Camera";
   };
 
   return (
@@ -105,41 +112,49 @@ export default function CameraScreen() {
       <View style={styles.controlsContainer}>
         <View style={styles.topControls}>
           <Text style={[styles.title, { color: "white" }]}>Camera Selection</Text>
-          <Text style={[styles.subtitle, { color: AC.systemGray6 }]}>
-            Current: {getDeviceLabel(selectedDeviceType)}
-          </Text>
+          {device && (
+            <Text style={[styles.subtitle, { color: AC.systemGray6 }]}>
+              Current: {getDeviceLabel(device)}
+            </Text>
+          )}
         </View>
 
         <View style={styles.bottomControls}>
           <View style={styles.cameraSelector}>
-            {availableDeviceTypes.map((deviceType) => (
-              <Pressable
-                key={deviceType}
-                onPress={() => handleLensChange(deviceType)}
-                style={({ pressed }) => [
-                  styles.cameraSelectorButton,
-                  {
-                    backgroundColor:
-                      selectedDeviceType === deviceType
-                        ? AC.systemBlue
-                        : "rgba(255, 255, 255, 0.2)",
-                    opacity: pressed ? 0.7 : 1,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.cameraSelectorText,
+            {backCameras.length === 0 ? (
+              <Text style={{ color: "white", textAlign: "center" }}>
+                Detecting cameras...
+              </Text>
+            ) : (
+              backCameras.map((cam) => (
+                <Pressable
+                  key={cam.id}
+                  onPress={() => handleLensChange(cam)}
+                  style={({ pressed }) => [
+                    styles.cameraSelectorButton,
                     {
-                      color: "white",
-                      fontWeight: selectedDeviceType === deviceType ? "700" : "500",
+                      backgroundColor:
+                        device?.id === cam.id
+                          ? AC.systemBlue
+                          : "rgba(255, 255, 255, 0.2)",
+                      opacity: pressed ? 0.7 : 1,
                     },
                   ]}
                 >
-                  {getDeviceLabel(deviceType)}
-                </Text>
-              </Pressable>
-            ))}
+                  <Text
+                    style={[
+                      styles.cameraSelectorText,
+                      {
+                        color: "white",
+                        fontWeight: device?.id === cam.id ? "700" : "500",
+                      },
+                    ]}
+                  >
+                    {getDeviceLabel(cam)}
+                  </Text>
+                </Pressable>
+              ))
+            )}
           </View>
 
           <Pressable
