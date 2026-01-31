@@ -1,95 +1,28 @@
-import { CameraView, useCameraPermissions } from "expo-camera";
+import { Camera, useCameraDevice, useCameraPermission } from "react-native-vision-camera";
 import * as MediaLibrary from "expo-media-library";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { View, Text, Pressable, StyleSheet, Alert } from "react-native";
 import * as AC from "@bacons/apple-colors";
 import { useColorScheme } from "react-native";
 
+type PhysicalCameraDevice = "ultra-wide-angle-camera" | "wide-angle-camera" | "telephoto-camera";
+
 export default function CameraScreen() {
-  const [permission, requestPermission] = useCameraPermissions();
+  const { hasPermission, requestPermission } = useCameraPermission();
   const [mediaPermission, requestMediaPermission] = MediaLibrary.usePermissions();
-  const [selectedLens, setSelectedLens] = useState<string | undefined>(undefined);
-  const [availableLenses, setAvailableLenses] = useState<string[]>([]);
-  const [pictureSize, setPictureSize] = useState<string | undefined>(undefined);
-  const cameraRef = useRef<CameraView>(null);
+  const [selectedDeviceType, setSelectedDeviceType] = useState<PhysicalCameraDevice>("wide-angle-camera");
+  const device = useCameraDevice("back", { physicalDevices: [selectedDeviceType] });
+  const cameraRef = useRef<Camera>(null);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
 
-  const handleAvailableLensesChanged = (event: any) => {
-    console.log("Available lenses event:", event);
-    const lenses = event?.lenses || event?.nativeEvent?.availableLenses || event?.availableLenses || event || [];
-    console.log("Parsed lenses:", lenses);
+  const availableDeviceTypes: PhysicalCameraDevice[] = [
+    "ultra-wide-angle-camera",
+    "wide-angle-camera",
+    "telephoto-camera"
+  ];
 
-    if (Array.isArray(lenses) && lenses.length > 0) {
-      setAvailableLenses(lenses);
-      // Set default lens if not already set
-      if (!selectedLens) {
-        // Try to find the standard wide lens, or use the first one
-        const wideLens = lenses.find((l: string) => l.toLowerCase().includes("back") && !l.toLowerCase().includes("ultra") && !l.toLowerCase().includes("telephoto") && !l.toLowerCase().includes("dual"));
-        setSelectedLens(wideLens || lenses[0]);
-      }
-    }
-  };
-
-  // Try to get available lenses and picture sizes when camera is ready
-  useEffect(() => {
-    const initializeCamera = async () => {
-      if (cameraRef.current) {
-        try {
-          // Get available lenses
-          const lenses = await cameraRef.current.getAvailableLensesAsync();
-          console.log("Manually fetched lenses:", lenses);
-          if (lenses && lenses.length > 0) {
-            setAvailableLenses(lenses);
-            if (!selectedLens) {
-              const wideLens = lenses.find((l: string) => l.toLowerCase().includes("back") && !l.toLowerCase().includes("ultra") && !l.toLowerCase().includes("telephoto"));
-              setSelectedLens(wideLens || lenses[0]);
-            }
-          }
-
-          // Get available picture sizes and select the largest
-          const sizes = await cameraRef.current.getAvailablePictureSizesAsync();
-          console.log("Available picture sizes:", sizes);
-          if (sizes && sizes.length > 0) {
-            // Look for "Photo" preset which uses full resolution
-            if (sizes.includes("Photo")) {
-              console.log("Selected picture size: Photo (full resolution)");
-              setPictureSize("Photo");
-            } else {
-              // Fallback: Parse sizes (format like "4032x3024") and find the largest
-              const numericSizes = sizes.filter((s: string) => s.includes('x'));
-              if (numericSizes.length > 0) {
-                const sortedSizes = numericSizes.sort((a: string, b: string) => {
-                  const [aWidth, aHeight] = a.split('x').map(Number);
-                  const [bWidth, bHeight] = b.split('x').map(Number);
-                  return (bWidth * bHeight) - (aWidth * aHeight);
-                });
-                const largestSize = sortedSizes[0];
-                console.log("Selected picture size:", largestSize);
-                setPictureSize(largestSize);
-              }
-            }
-          }
-        } catch (error) {
-          console.log("Error initializing camera:", error);
-        }
-      }
-    };
-
-    // Wait a bit for camera to be ready
-    const timer = setTimeout(initializeCamera, 500);
-    return () => clearTimeout(timer);
-  }, [permission?.granted]);
-
-  if (!permission) {
-    return (
-      <View style={[styles.container, { backgroundColor: isDark ? AC.systemBackground : AC.systemBackground }]}>
-        <Text style={{ color: isDark ? AC.label : AC.label }}>Loading camera...</Text>
-      </View>
-    );
-  }
-
-  if (!permission.granted) {
+  if (!hasPermission) {
     return (
       <View style={[styles.container, { backgroundColor: isDark ? AC.systemBackground : AC.systemBackground }]}>
         <Text style={[styles.message, { color: isDark ? AC.label : AC.label }]}>
@@ -111,120 +44,103 @@ export default function CameraScreen() {
     );
   }
 
+  if (!device) {
+    return (
+      <View style={[styles.container, { backgroundColor: isDark ? AC.systemBackground : AC.systemBackground }]}>
+        <Text style={{ color: isDark ? AC.label : AC.label }}>Loading camera...</Text>
+      </View>
+    );
+  }
+
   const takePicture = async () => {
     if (cameraRef.current) {
       try {
-        const photo = await cameraRef.current.takePictureAsync({
-          quality: 1,
-          skipProcessing: false, // Ensure proper orientation
+        const photo = await cameraRef.current.takePhoto({
+          qualityPrioritization: "quality",
+          enableShutterSound: true,
         });
 
-        if (photo) {
-          // Request media library permission if not granted
-          if (!mediaPermission?.granted) {
-            const { status } = await requestMediaPermission();
-            if (status !== "granted") {
-              Alert.alert("Permission Required", "Please grant access to save photos to camera roll");
-              return;
-            }
+        // Request media library permission if not granted
+        if (!mediaPermission?.granted) {
+          const { status } = await requestMediaPermission();
+          if (status !== "granted") {
+            Alert.alert("Permission Required", "Please grant access to save photos to camera roll");
+            return;
           }
-
-          // Save to camera roll
-          await MediaLibrary.saveToLibraryAsync(photo.uri);
-          Alert.alert("Photo Saved!", "Photo has been saved to your camera roll", [{ text: "OK" }]);
         }
+
+        // Save to camera roll
+        await MediaLibrary.saveToLibraryAsync(`file://${photo.path}`);
+        Alert.alert("Photo Saved!", "Photo has been saved to your camera roll", [{ text: "OK" }]);
       } catch (error) {
         Alert.alert("Error", `Failed to take picture: ${error}`);
       }
     }
   };
 
-  const handleLensChange = (lens: string) => {
-    console.log("Switching to lens:", lens);
-    setSelectedLens(lens);
+  const handleLensChange = (deviceType: PhysicalCameraDevice) => {
+    console.log("Switching to device:", deviceType);
+    setSelectedDeviceType(deviceType);
   };
 
-  const getLensLabel = (lens: string) => {
-    // Use the actual lens name from iOS, and add zoom indicators
-    const lowerLens = lens.toLowerCase();
-    if (lowerLens.includes("ultra")) {
-      return `${lens} (0.5x)`;
-    } else if (lowerLens.includes("telephoto")) {
-      return `${lens} (2-3x)`;
-    } else {
-      return `${lens} (1x)`;
-    }
-  };
-
-  const getShortLensLabel = (lens: string) => {
-    const lowerLens = lens.toLowerCase();
-    if (lowerLens.includes("ultra")) {
-      return "Ultra Wide (0.5x)";
-    } else if (lowerLens.includes("telephoto")) {
-      return "Telephoto (2-3x)";
-    } else {
-      return "Wide (1x)";
+  const getDeviceLabel = (deviceType: PhysicalCameraDevice) => {
+    switch (deviceType) {
+      case "ultra-wide-angle-camera":
+        return "Ultra Wide (0.5x)";
+      case "wide-angle-camera":
+        return "Wide (1x)";
+      case "telephoto-camera":
+        return "Telephoto (2-3x)";
     }
   };
 
   return (
     <View style={styles.container}>
-      <CameraView
-        key={selectedLens}
+      <Camera
         ref={cameraRef}
         style={styles.camera}
-        facing="back"
-        selectedLens={selectedLens}
-        pictureSize="Photo"
-        mode="picture"
-        onAvailableLensesChanged={handleAvailableLensesChanged}
+        device={device}
+        isActive={true}
+        photo={true}
       />
       <View style={styles.controlsContainer}>
         <View style={styles.topControls}>
           <Text style={[styles.title, { color: "white" }]}>Camera Selection</Text>
-          {selectedLens && (
-            <Text style={[styles.subtitle, { color: AC.systemGray6 }]}>
-              Current: {getShortLensLabel(selectedLens)}
-            </Text>
-          )}
+          <Text style={[styles.subtitle, { color: AC.systemGray6 }]}>
+            Current: {getDeviceLabel(selectedDeviceType)}
+          </Text>
         </View>
 
         <View style={styles.bottomControls}>
           <View style={styles.cameraSelector}>
-            {availableLenses.length === 0 ? (
-              <Text style={{ color: "white", textAlign: "center" }}>
-                Detecting cameras...
-              </Text>
-            ) : (
-              availableLenses.map((lens) => (
-                <Pressable
-                  key={lens}
-                  onPress={() => handleLensChange(lens)}
-                  style={({ pressed }) => [
-                    styles.cameraSelectorButton,
+            {availableDeviceTypes.map((deviceType) => (
+              <Pressable
+                key={deviceType}
+                onPress={() => handleLensChange(deviceType)}
+                style={({ pressed }) => [
+                  styles.cameraSelectorButton,
+                  {
+                    backgroundColor:
+                      selectedDeviceType === deviceType
+                        ? AC.systemBlue
+                        : "rgba(255, 255, 255, 0.2)",
+                    opacity: pressed ? 0.7 : 1,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.cameraSelectorText,
                     {
-                      backgroundColor:
-                        selectedLens === lens
-                          ? AC.systemBlue
-                          : "rgba(255, 255, 255, 0.2)",
-                      opacity: pressed ? 0.7 : 1,
+                      color: "white",
+                      fontWeight: selectedDeviceType === deviceType ? "700" : "500",
                     },
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.cameraSelectorText,
-                      {
-                        color: "white",
-                        fontWeight: selectedLens === lens ? "700" : "500",
-                      },
-                    ]}
-                  >
-                    {getShortLensLabel(lens)}
-                  </Text>
-                </Pressable>
-              ))
-            )}
+                  {getDeviceLabel(deviceType)}
+                </Text>
+              </Pressable>
+            ))}
           </View>
 
           <Pressable

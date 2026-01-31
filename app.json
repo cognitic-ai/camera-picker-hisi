@@ -1,5 +1,8 @@
 {
   "expo": {
+    "name": "Camera Lens Selector",
+    "slug": "camera-lens-selector",
+    "version": "1.0.0",
     "orientation": "default",
     "scheme": "acme",
     "userInterfaceStyle": "automatic",
@@ -23,9 +26,10 @@
       "expo-web-browser",
       "@bacons/apple-colors",
       [
-        "expo-camera",
+        "react-native-vision-camera",
         {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to take photos."
+          "cameraPermissionText": "$(PRODUCT_NAME) needs access to your camera to take photos.",
+          "enableCodeScanner": false
         }
       ],
       [
