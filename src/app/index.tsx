@@ -51,16 +51,24 @@ export default function CameraScreen() {
           const sizes = await cameraRef.current.getAvailablePictureSizesAsync();
           console.log("Available picture sizes:", sizes);
           if (sizes && sizes.length > 0) {
-            // Typically the largest size is the last one or has the highest resolution
-            // Parse sizes (format like "4032x3024") and find the largest
-            const sortedSizes = sizes.sort((a: string, b: string) => {
-              const [aWidth, aHeight] = a.split('x').map(Number);
-              const [bWidth, bHeight] = b.split('x').map(Number);
-              return (bWidth * bHeight) - (aWidth * aHeight);
-            });
-            const largestSize = sortedSizes[0];
-            console.log("Selected picture size:", largestSize);
-            setPictureSize(largestSize);
+            // Look for "Photo" preset which uses full resolution
+            if (sizes.includes("Photo")) {
+              console.log("Selected picture size: Photo (full resolution)");
+              setPictureSize("Photo");
+            } else {
+              // Fallback: Parse sizes (format like "4032x3024") and find the largest
+              const numericSizes = sizes.filter((s: string) => s.includes('x'));
+              if (numericSizes.length > 0) {
+                const sortedSizes = numericSizes.sort((a: string, b: string) => {
+                  const [aWidth, aHeight] = a.split('x').map(Number);
+                  const [bWidth, bHeight] = b.split('x').map(Number);
+                  return (bWidth * bHeight) - (aWidth * aHeight);
+                });
+                const largestSize = sortedSizes[0];
+                console.log("Selected picture size:", largestSize);
+                setPictureSize(largestSize);
+              }
+            }
           }
         } catch (error) {
           console.log("Error initializing camera:", error);
@@ -167,7 +175,8 @@ export default function CameraScreen() {
         style={styles.camera}
         facing="back"
         selectedLens={selectedLens}
-        pictureSize={pictureSize}
+        pictureSize="Photo"
+        mode="picture"
         onAvailableLensesChanged={handleAvailableLensesChanged}
       />
       <View style={styles.controlsContainer}>
